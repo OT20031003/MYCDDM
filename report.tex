@@ -1,0 +1,108 @@
+\documentclass[lualatex,11pt]{ltjarticle}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{bm}
+\usepackage{url}
+\usepackage{xcolor}
+
+% 数式用マクロ定義
+\newcommand{\bx}{\bm{x}}
+\newcommand{\by}{\bm{y}}
+\newcommand{\bz}{\bm{z}}
+\newcommand{\bn}{\bm{n}}
+\newcommand{\bs}{\bm{s}}
+\newcommand{\bepsilon}{\bm{\epsilon}}
+\newcommand{\bU}{\bm{U}}
+\newcommand{\Expect}{\mathbb{E}}
+
+\title{不確実性ガイド付き拡散モデルを用いた\\無線画像伝送システムモデル}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{システムモデル}
+本稿では、高解像度画像データセットDIV2Kを対象とした、拡散モデルベースの無線画像伝送システムを検討する。受信機において、拡散モデルのサンプリング過程でピクセル単位の不確実性を推定し、復元品質を向上させる。
+
+\subsection{送信機およびチャネルモデル}
+入力画像を $\bs \in \mathbb{R}^{H \times W \times 3}$ とする（DIV2Kデータセット）。送信機は、ソース画像をチャネル入力シンボル $\bx \in \mathbb{C}^{k}$ にマッピングするエンコーダ $f_\theta(\cdot)$ を有する。
+\begin{equation}
+    \bx = f_\theta(\bs)
+\end{equation}
+ここで、送信信号 $\bx$ は平均電力制約 $\frac{1}{k} \Expect[\|\bx\|^2] \le P$ を満たすように正規化される。
+
+無線チャネルとして、加法性白色ガウス雑音（AWGN）チャネルを仮定する。受信信号 $\by$ は次式で表される。
+\begin{equation}
+    \by = \bx + \bn
+\end{equation}
+ここで、$\bn \sim \mathcal{CN}(0, \sigma_n^2 \bm{I})$ は独立同一分布に従う複素ガウス雑音ベクトルである。
+
+\subsection{拡散モデルによる受信と不確実性推定}
+受信機では、条件付き拡散モデルを用いて、受信信号 $\by$ から元の画像 $\bs$（拡散過程における $\bx_0$）を推定する。提案手法に基づき、サンプリングステップ $t$ ごとにデノイジングスコアの分散を用いて不確実性を推定する。
+
+\subsubsection{不確実性推定アルゴリズム}
+タイムステップ $t$ における不確実性マップ $\bU_t$ の推定は、モデル出力の感度（Sensitivity）を代理指標として用いる。具体的な手順は以下の通りである。
+
+\begin{enumerate}
+    \item \textbf{クリーン画像の近似}: 現在のノイズあり画像 $\bx_t$ とスコア推定値 $\bepsilon_\theta(\bx_t, t)$ を用いて、$\bx_0$ の近似値 $\hat{\bx}_0$ を計算する。
+    \begin{equation}
+        \hat{\bx}_0 = \frac{\bx_t - \sqrt{1-\bar{\alpha}_t}\bepsilon_\theta(\bx_t, t)}{\sqrt{\bar{\alpha}_t}}
+    \end{equation}
+    ここで、$\bar{\alpha}_t$ は拡散プロセスのノイズスケジュールである。
+
+    \item \textbf{摂動サンプルの生成}: 近似した $\hat{\bx}_0$ に対し、拡散プロセスの順方向（Noising）分布 $q(\tilde{\bx}_t | \hat{\bx}_0)$ に従って $M$ 個の異なるノイズサンプル $\{\hat{\bx}_t^i\}_{i=1}^M$ を生成する。
+    \begin{equation}
+        \hat{\bx}_t^i = \sqrt{\bar{\alpha}_t}\hat{\bx}_0 + \sqrt{1-\bar{\alpha}_t}\bepsilon_i, \quad \bepsilon_i \sim \mathcal{N}(0, \bm{I})
+    \end{equation}
+    この摂動スキームは、拡散モデル専用に設計されたものである。
+
+    \item \textbf{分散による不確実性算出}: $M$ 個のサンプルに対するスコア $\bepsilon_\theta(\hat{\bx}_t^i, t)$ を計算し、その分散を不確実性 $\bU_t$ とする。
+    \begin{equation}
+        \bU_t = \text{Var}\left( \{ \bepsilon_\theta(\hat{\bx}_t^i, t) \}_{i=1}^M \right)
+    \end{equation}
+    この分散は、ノイズ分布の対数尤度の二階微分（曲率）と関連していることが示されている。
+\end{enumerate}
+
+\begin{algorithm}[H]
+\caption{ピクセル単位の不確実性推定 (Pixel-wise Uncertainty Estimation)}
+\label{alg:uncertainty}
+\begin{algorithmic}[1]
+\Require 画像 $\bx_t$, タイムステップ $t$, サンプル数 $M$
+\Ensure 不確実性マップ $\bU_t$
+\State 真のスコア $\bepsilon_\theta(\bx_t, t)$ を計算
+\State $\bx_0$ の近似値を計算: $\hat{\bx}_0 \leftarrow \frac{\bx_t - \sqrt{1-\bar{\alpha}_t}\bepsilon_\theta(\bx_t, t)}{\sqrt{\bar{\alpha}_t}}$
+\For{$i = 1$ to $M$}
+    \State ノイズ再注入: $\hat{\bx}_t^i \leftarrow \sqrt{\bar{\alpha}_t}\hat{\bx}_0 + \sqrt{1-\bar{\alpha}_t}\bepsilon_i$
+    \State スコア計算: $\bepsilon_i' \leftarrow \bepsilon_\theta(\hat{\bx}_t^i, t)$
+\EndFor
+\State 分散を計算: $\bU_t \leftarrow \text{Var}(\{\bepsilon_i'\}_{i=1}^M)$
+\State \Return $\bU_t$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{再送マスク生成と信号合成}
+不確実性マップ $\mathbf{U}$ の各要素 $u_j$ が所定の閾値 $\tau$ を超える場合、そのシンボルインデックス $j$ を再送対象とするバイナリマスク $\mathbf{M}$ を生成する。
+\begin{equation}
+    m_j = 
+    \begin{cases}
+        1, & \text{if } u_j > \tau \\
+        0, & \text{otherwise}
+    \end{cases}
+\end{equation}
+受信機はこのマスク $\mathbf{M}$ をフィードバックし、送信機はマスクされた部分信号
+\begin{equation}
+    \mathbf{x}_{\text{sub}} = \mathbf{x} \odot \mathbf{M}
+\end{equation}
+のみを再送する。
+
+受信機では、再送された信号 $\mathbf{y}_{\text{re}}$ と、バッファされている過去の受信信号 $\mathbf{y}_{\text{old}}$ を最大比合成（AWGN下では単純平均）し、信号対雑音比を改善する。
+\begin{equation}
+    \mathbf{y}_{\text{new}}[j] = \frac{\mathbf{y}_{\text{old}}[j]\cdot c[j] + \mathbf{y}_{\text{re}}[j]}{c[j] + 1}
+\end{equation}
+ここで、$c[j]$ はシンボル $j$ の累積受信回数である。更新された受信信号 $\mathbf{y}_{\text{new}}$ を新たな条件（Condition）としてCDDMプロセスを継続することで、不確実性の高い領域を選択的に「浄化」し、最終的な画質を向上させる。
+
+\end{document}
