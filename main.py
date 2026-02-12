@@ -187,7 +187,7 @@ if __name__ == '__main__':
                     for noise_schedule in experiment.noise_schedule:
                         for t_max in experiment.Tmax:
                             # チェックポイント（学習済みモデル）のベースディレクトリ
-                            basepath = r'/mnt/wutong/CDDMcheckpoints/checkpoints' 
+                            basepath = r'/mnt/d/WSL_Work/MYCDDM/checkpoints'
                             
                             # --- パスの生成ロジック ---
                             # 実験条件に応じて、読み込むべきモデルファイル名（.pt）を動的に生成しています
