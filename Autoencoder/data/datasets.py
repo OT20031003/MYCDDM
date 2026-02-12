@@ -115,8 +115,10 @@ class config():
         test_data_dir = r"E:\code\DDPM\DenoisingDiffusionProbabilityModel-ddpm--main\DenoisingDiffusionProbabilityModel-ddpm--main\CIFAR10"
     elif dataset == "DIV2K":
         image_dims = (3, 256, 256)
-        train_data_dir = r"D:\dateset\DIV2K\DIV2K_train_HR"
-        test_data_dir = r"D:\dateset\DIV2K\DIV2K_valid_HR"
+        # train_data_dir = r"D:\dateset\DIV2K\DIV2K_train_HR"
+        # test_data_dir = r"D:\dateset\DIV2K\DIV2K_valid_HR"
+        train_data_dir = r"/mnt/d/Dataset/DIV2K/DIV2K_train_HR"
+        test_data_dir = r"/mnt/d/Dataset/DIV2K/DIV2K_valid_HR"
     elif dataset == "CelebA":
         image_dims = (3, 128, 128)
         train_data_dir = r"D:\dateset\CelebA\Img\trainset"

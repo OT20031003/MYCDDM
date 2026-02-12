@@ -1,2 +1,3 @@
 *.aux
 report.log
+__pycache__
